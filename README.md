@@ -22,8 +22,8 @@ Sed sit amet ante sem. Nunc id sapien metus. Etiam lobortis in purus ut porta. V
 
 **Diagrama de Classes**
 
-![Diagrama de Classes](diagrama-generico.png)
+![Diagrama de Classes](diagrama-exemplo.png)
 
 **Modelagem do Banco de Dados**
 
-![Diagrama de Banco de Dados](diagrama-generico.png)
+![Diagrama de Banco de Dados](diagrama-exemplo.png)
