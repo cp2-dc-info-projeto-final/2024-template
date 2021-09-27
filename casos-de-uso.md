@@ -48,10 +48,6 @@ Quisque id neque a erat imperdiet dictum et ut mauris.
 6. Nam vitae lacus porttitor, sodales orci vel, lobortis arcu.
 
 
-**Diagrama de Sequência**
-
-![Diagrama de Sequência](diagrama-generico.png)
-
 ### CDU 02
 
 Morbi fringilla dolor at mattis vestibulum.
