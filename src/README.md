@@ -50,5 +50,5 @@ Neste momento se você estiver na IDE VSCode uma notificação fará sugestão d
 
 Obs.: Se você estiver no WSL esta etapa efetua um encaminhamento de porta para o host (windows), que não é automática mas o VS Code Captura e sugere. Rodando diretamente do terminal você precisará fazer o port forwarding manualmente para abrir no navegador do windows.
 
-Caso você queira configurar manualmente o projeto procure o (Vite)[https://vitejs.dev/] e utilize o padrão Svelte (não SvelteKit) com JavaScript (não TypeScript).
+Caso você queira configurar manualmente o projeto procure o [Vite](https://vitejs.dev/) e utilize o padrão Svelte (não SvelteKit) com JavaScript (não TypeScript).
 
