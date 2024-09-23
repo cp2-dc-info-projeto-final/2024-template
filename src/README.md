@@ -46,5 +46,9 @@ Depois rodar a aplicação (outro terminal com o node ainda rodando):
 
 `npm run dev`
 
+Neste momento se você estiver na IDE VSCode uma notificação fará sugestão de abrir o link para aplicação frontend rodando na porta `5173`, acessível pelo caminho `localhost:5173`.
+
+Obs.: Se você estiver no WSL esta etapa efetua um encaminhamento de porta para o host (windows), que não é automática mas o VS Code Captura e sugere. Rodando diretamente do terminal você precisará fazer o port forwarding manualmente para abrir no navegador do windows.
+
 Caso você queira configurar manualmente o projeto procure o (Vite)[https://vitejs.dev/] e utilize o padrão Svelte (não SvelteKit) com JavaScript (não TypeScript).
 
