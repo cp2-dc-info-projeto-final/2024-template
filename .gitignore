@@ -13,6 +13,8 @@ src/frontend-app/node_modules
 */dist
 */dist-ssr
 *.local
+src/frontend-app/dist
+src/vite
 
 # Editor directories and files
 .vscode/*
