@@ -1,18 +1,139 @@
+const dotenv = require('dotenv').config()
+
+const { SECRET_ACCESS_TOKEN } = process.env;
 const express = require('express');
 const cors = require('cors');
 
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require("bcryptjs")
+const jwt = require('jsonwebtoken');
+const e = require('express');
 
 const app = express();
 app.use(express.json());
 const port = 3000;
 
+
+app.use(cors());
+
+
 function geraNumeroAleatorio(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
 }
 
-app.use(cors());
+function geraAcessoJWT() {
+  let payload = {
+    id: this._id,
+  };
+  return jwt.sign(payload, SECRET_ACCESS_TOKEN, {
+    expiresIn: '20m',
+  });
+};
+
+async function login(req, res) {
+  let db = new sqlite3.Database('./users.db', (err) => {
+    if (err) {
+      return console.error(err.message);
+    }
+    console.log('Conectou no banco de dados!');
+  });
+
+  const { email, senha } = req.body;
+  console.log(email); 
+  console.log(senha);
+
+  // recupera a senha do usuário que está tentando fazer login
+  db.get('SELECT senha FROM usuario WHERE email = ?', [email], async (error, result) => {
+    if (error) {
+      console.log(error)
+    }
+    else if (result) {
+      db.close((err) => {
+        if (err) {
+          console.log(err.message);
+          return console.error(err.message);
+        }
+        console.log('Fechou a conexão com o banco de dados.');
+      });
+      return res.status(401).json({
+        status: 'failed',
+        message: 'Login inválido 1!',
+      });
+    } else {
+      let senhaCorreta = await bcrypt.compare(senha, result.senha)
+      if (!senhaCorreta) {
+        return res.status(401).json({
+          status: 'failed',
+          message: 'Login inválido 2!',
+        });
+      }
+
+      let options = {
+        maxAge: 20 * 60 * 1000, // minutos * segundos * milissegundos = total 20 minutos
+        httpOnly: true, // restringe acesso ao cookie apenas para o servidor
+        secure: true,
+        sameSite: "None",
+      };
+      const token = geraAcessoJWT(); // gera um token de sessão para o usuário
+    res.cookie("SessionID", token, options); // preenche o token na resposta para ser utilizado pelo cliente nas próximas requisições
+      res.status(200).json({
+          status: "success",
+          message: "Autenticação realizada com sucesso!",
+      });
+    }
+  });
+}
+
+async function verificaToken(req, res, next) {
+  const authHeader = req.headers['cookie']
+
+  // se o cookie não estiver presente o usuário não está logado
+  if (!authHeader) {
+    return res.status(401).json({
+      status: 'failed',
+      message: 'Você não está logado!',
+    });
+  }
+  const requestToken = authHeader.split('=')[1] // na posição 0 está o nome da variável, na posição 1 o valor, no caso o token
+  jwt.verify(requestToken, SECRET_ACCESS_TOKEN, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({
+        status: 'failed',
+        message: 'Sessão expirada!',
+      });
+    }
+
+    // o conteúdo decodificado do token é o id do usuário
+    const { id } = decoded;
+
+    // recupera dados do usuário que está tentando fazer login
+    db.get('SELECT id, nome, email FROM usuario WHERE id = ?', [id], async (error, result) => {
+      if (error) {
+        console.log(error)
+      }
+      else if (result) {
+        db.close((err) => {
+          if (err) {
+            return console.error(err.message)
+          }
+          console.log('Fechou a conexão com o banco de dados.')
+        });
+        return res.status(401).json({
+          status: 'failed',
+          message: 'Login inválido 3!',
+        });
+      }
+    });
+    const { userId, nome, email } = result
+    req.userId = userId
+    req.email = email
+    req.nome = nome
+    next();
+  });
+}
+
+app.post("/login", login);
+
 
 app.get('/hello', (req, res) => {
   let aleatorio = geraNumeroAleatorio(0,100);
@@ -23,7 +144,7 @@ app.get('/hello', (req, res) => {
   });
 });
 
-app.get('/usuarios', (req, res) => {
+app.get('/usuarios', verificaToken, (req, res) => {
   let db = new sqlite3.Database('./users.db', (err) => {
     if (err) {
       return console.error(err.message);

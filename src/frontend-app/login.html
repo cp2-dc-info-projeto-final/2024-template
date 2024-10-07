@@ -3,20 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hello Svelte!</title>
+    <title>Login</title>
     <script type="module">
       import './src/app.css'
-      import App from './src/App.svelte'
+      import Login from './src/Login.svelte'
 
-      const app = new App({
-        target: document.getElementById('app'),
+      const login = new Login({
+        target: document.getElementById('login'),
       })
 
-      export default app
+      export default login
 
     </script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="login"></div>
   </body>
 </html>
