@@ -1,6 +1,6 @@
 const dotenv = require('dotenv').config()
 
-const { SECRET_ACCESS_TOKEN } = process.env;
+const { SECRET_ACCESS_TOKEN, NODE_ENV } = process.env;
 const express = require('express');
 const cors = require('cors');
 
@@ -14,7 +14,12 @@ const app = express();
 
 const port = 3000;
 
-app.use(cors());
+
+app.use(cors({
+  origin: 'http://localhost:5173', // Habilita apenas URL do frontend svelte
+  credentials: true, 
+}));
+
 app.disable("x-powered-by");
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
@@ -24,9 +29,19 @@ function geraNumeroAleatorio(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
 }
 
+function geraConexaoDeBancoDeDados() {
+  let db = new sqlite3.Database('./users.db', (err) => {
+    if (err) {
+      return console.error(err.message);
+    }
+    console.log('Conectou no banco de dados!');
+  });
+  return db;
+}
+
 function geraAcessoJWT(idUsuario) {
   let payload = {
-    id: idUsuario
+    idUsuario: idUsuario
   };
   return jwt.sign(payload, SECRET_ACCESS_TOKEN, {
     expiresIn: '20m',
@@ -34,19 +49,12 @@ function geraAcessoJWT(idUsuario) {
 };
 
 async function login(req, res) {
-  let db = new sqlite3.Database('./users.db', (err) => {
-    if (err) {
-      return console.error(err.message);
-    }
-    console.log('Conectou no banco de dados!');
-  });
+  let db = geraConexaoDeBancoDeDados();
 
   const { email, senha } = req.body;
-  console.log(email); 
-  console.log(senha);
 
   // recupera a senha do usuário que está tentando fazer login
-  db.get('SELECT senha FROM usuario WHERE email = ?', [email], async (error, result) => {
+  db.get('SELECT id_usuario, senha FROM usuario WHERE email = ?', [email], async (error, result) => {
     if (error) {
       console.log(error)
     }
@@ -59,6 +67,7 @@ async function login(req, res) {
         console.log('Fechou a conexão com o banco de dados.');
       });
 
+      let idUsuario = result.id_usuario;
       let senhaCorreta = await bcrypt.compare(senha, result.senha)
       if (!senhaCorreta) {
         return res.status(401).json({
@@ -69,12 +78,18 @@ async function login(req, res) {
 
       let options = {
         maxAge: 20 * 60 * 1000, // minutos * segundos * milissegundos = total 20 minutos
-        httpOnly: true, // restringe acesso ao cookie apenas para o servidor
-        secure: true,
-        sameSite: "None",
+        httpOnly: true, // restringe acesso de js ao cookie
+        secure: NODE_ENV === 'production' ? true : false, // secure ativado de acordo com ambiente (desenvolvimento/produção) para uso do https
+        sameSite: "Lax", // habilita compartilhamento de cookie entre páginas
       };
-      const token = geraAcessoJWT(); // gera um token de sessão para o usuário
-      console.log(token)
+
+      console.log(`secure: ${options.secure}`);
+
+      const token = geraAcessoJWT(idUsuario); // gera um token de sessão para o usuário
+
+      console.log(`Usuário ${email} logado com sucesso!\nToken: ${token}`);      
+
+      // após realizar login, vá nas ferramentas do desenvolvedor do navegador, na aba Application, em Cookies, e veja o cookie SessionID
       res.cookie("SessionID", token, options); // preenche o token na resposta para ser utilizado pelo cliente nas próximas requisições
         res.status(200).json({
             status: "success",
@@ -84,47 +99,54 @@ async function login(req, res) {
   });
 }
 
-async function verificaToken(req, res, next) {
-  const authHeader = req.headers['cookie']
-
-  // se o cookie não estiver presente o usuário não está logado
-  if (!authHeader) {
-    return res.status(401).json({
-      status: 'failed',
-      message: 'Você não está logado!',
+// esta função é um middleware, uma chamada que vai entre duas chamadas para verificar se o usuário está logado
+async function verificaToken(req, res, next) {  
+  // se o token (variável SessionID) não estiver presente no cookie o usuário não está logado
+  const token = req.cookies.SessionID;
+  if (!token) {
+    return res.status(401).json({ 
+      status: 'failed', 
+      message: 'Você não está logado!'
     });
   }
-  const requestToken = authHeader.split('=')[1] // na posição 0 está o nome da variável, na posição 1 o valor, no caso o token
-  jwt.verify(requestToken, SECRET_ACCESS_TOKEN, (err, decoded) => {
+
+  console.log(`token: ${token}`);
+  console.log(`SECRET_ACCESS_TOKEN: ${SECRET_ACCESS_TOKEN}`);
+  jwt.verify(token, SECRET_ACCESS_TOKEN, (err, decoded) => {
     if (err) {
       return res.status(401).json({
         status: 'failed',
         message: 'Sessão expirada!',
       });
-    }
+    } else {
+      // o conteúdo decodificado do token é o id do usuário
+      let { idUsuario} = decoded;
+      console.log(`decoded: ${decoded}`);
+      console.log(`idUsuario decoded: ${decoded.idUsuario}`);
 
-    // o conteúdo decodificado do token é o id do usuário
-    const { id } = decoded;
+      db = geraConexaoDeBancoDeDados();
 
-    // recupera dados do usuário que está tentando fazer login
-    db.get('SELECT id, nome, email FROM usuario WHERE id = ?', [id], async (error, result) => {
-      if (error) {
-        console.log(error)
-      }
-      else if (result) {
-        db.close((err) => {
-          if (err) {
-            return console.error(err.message)
-          }
-          console.log('Fechou a conexão com o banco de dados.')
-        });
-      }
-    });
-    const { userId, nome, email } = result
-    req.userId = userId
-    req.email = email
-    req.nome = nome
-    next();
+      // recupera dados do usuário que está tentando fazer login
+      db.get('SELECT id_usuario, nome, email FROM usuario WHERE id_usuario = ?', [idUsuario], async (error, result) => {
+        if (error) {
+          console.log(error)
+        }
+        else if (result) {
+          db.close((err) => {
+            if (err) {
+              return console.error(err.message)
+            }
+            console.log('Fechou a conexão com o banco de dados.')
+          });
+
+          const { id_usuario, nome, email } = result
+          req.idUsuario = id_usuario
+          req.email = email
+          req.nome = nome
+          next();
+        }
+      });
+    }   
   });
 }
 
@@ -140,13 +162,25 @@ app.get('/hello', (req, res) => {
   });
 });
 
-app.get('/usuarios', verificaToken, (req, res) => {
-  let db = new sqlite3.Database('./users.db', (err) => {
-    if (err) {
-      return console.error(err.message);
-    }
-    console.log('Conectou no banco de dados!');
+// Endpoint para retornar todos os dados do usuário logado
+app.get('/usuarios/me', verificaToken, (req, res) => {
+  // recupera dados do usuário logado
+  const usuarioLogado = {
+    idUsuario: req.idUsuario,
+    nome: req.nome,
+    email: req.email
+  }
+  // Retorna os dados do usuário em formato JSON
+  res.status(200).json({
+      status: 'success',
+      usuario: usuarioLogado // Retorna todos os dados do usuário
   });
+});
+
+
+// uso do middleware verificaToken
+app.get('/usuarios', verificaToken, (req, res) => {
+  let db = geraConexaoDeBancoDeDados();
 
   // Seleciona todos os usuários da tabela 'usuario'
   db.all('SELECT * FROM usuario', [], (err, rows) => {
@@ -175,9 +209,10 @@ app.get('/usuarios', verificaToken, (req, res) => {
 });
 
 
+// uso do middleware verificaToken
 app.post('/usuarios/novo', verificaToken, (req, res) => {
   const { nome, email, senha, conf_senha } = req.body;
-  console.log(req);
+
   // Aqui começa a validação dos campos do formulário
   let erro = "";
   if (nome.length < 1 || email.length < 1 || senha.length < 1 || conf_senha.length < 1) {
@@ -194,12 +229,8 @@ app.post('/usuarios/novo', verificaToken, (req, res) => {
   }
   else {
     // aqui começa o código para inserir o registro no banco de dados
-    let db = new sqlite3.Database('./users.db', (err) => {
-      if (err) {
-        return console.error(err.message);
-      }
-      console.log('Conectou no banco de dados!');
-    });
+    let db = geraConexaoDeBancoDeDados();
+
     db.get('SELECT email FROM usuario WHERE email = ?', [email], async (error, result) => {
       if (error) {
         console.log(error)
@@ -240,20 +271,12 @@ app.post('/usuarios/novo', verificaToken, (req, res) => {
   }
 });
 
+// uso do middleware verificaToken
 app.delete('/usuarios/:id_usuario', verificaToken, (req, res) => {
   const { id_usuario } = req.params;
 
   // Conectar ao banco de dados SQLite
-  let db = new sqlite3.Database('./users.db', (err) => {
-    if (err) {
-      return res.status(500).json({
-        status: 'failed',
-        message: 'Erro ao conectar ao banco de dados!',
-        error: err.message
-      });
-    }
-    console.log('Conectou no banco de dados!');
-  });
+  let db = geraConexaoDeBancoDeDados();
 
   // Deletar o usuário pelo ID
   db.run('DELETE FROM usuario WHERE id_usuario = ?', [id_usuario], function (err) {

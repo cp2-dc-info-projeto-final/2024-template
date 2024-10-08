@@ -5,45 +5,35 @@
     let senha = "";
     let error = null;
     let resultado = null;
-    let usuarios = null;
-    let colunas_usuarios = null;
 
-    const api_base_url = "http://localhost:3000";
-  
-    const carregarUsuarios = async () => {
-      try {
-        let res = await axios.get(api_base_url + "/usuarios", {
-          responseType: "json",
-          headers: {
-            Accept: "application/json",
-          },
-        });
-        usuarios = res.data.usuarios;
-        colunas_usuarios = Object.keys(usuarios[0]);
-        error = null; // Limpa o erro se a requisição for bem-sucedida
-      } catch (err) {
-        error = "Erro ao buscar dados: " + err.response?.data?.message || err.message;;
-        console.error(err);
-        usuarios = null; // Limpa o resultado em caso de erro
-      }
-    };
+    const API_BASE_URL = "http://localhost:3000";
 
-  
+    // habilita envio das credenciais via cookies em toda requisição axios
+    // também configura a base URL padrão para todos os requests usando essa instância
+    const axiosInstance = axios.create({
+        withCredentials: true,
+        baseURL: API_BASE_URL,
+        responseType: "json",
+        headers: {
+                Accept: "application/json",
+            }
+    });
+    
     const loginUsuario = async () => {
       try {
-        let res = await axios.post(
-          api_base_url + "/login",
+        let res = await axiosInstance.post("/login",
           {
             email,
             senha
-          },
-          {
-            headers: {
-              Accept: "application/json",
-            },
-          },
+          }
         );
+
         resultado = res.data;
+
+        // Redirecionar para uma página protegida após login bem-sucedido
+        if (resultado && resultado.status === "success") { 
+            window.location.href = "/index.html";  
+        }
         error = null; // Limpa o erro se a requisição for bem-sucedida
         // recarrega lista de usuários apresentada
       } catch (err) {
@@ -52,8 +42,7 @@
       }
       
     };
-  
-    carregarUsuarios()
+
   </script>
   
 
@@ -95,32 +84,6 @@
         </form>
     </div>
 
-    <div class="card">
-      {#if usuarios}
-        <table>
-          <thead>
-            <tr>
-              {#each colunas_usuarios as nome_coluna}
-                <th>{nome_coluna}</th>
-              {/each}
-              <th></th>
-            </tr><tr />
-          </thead>
-          <tbody>
-            {#each Object.values(usuarios) as linha_usuario}
-              <tr>
-                {#each colunas_usuarios as atributo}
-                  <td>{linha_usuario[atributo]}</td>
-                {/each}
-                <td>
-                  <button on:click={() => deletarUsuario(linha_usuario.id_usuario)}>Remover</button>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {/if}
-    </div>
 
   </main>
   
