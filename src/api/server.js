@@ -8,22 +8,25 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require("bcryptjs")
 const jwt = require('jsonwebtoken');
 const e = require('express');
+const cookieParser = require('cookie-parser');
 
 const app = express();
-app.use(express.json());
+
 const port = 3000;
 
-
 app.use(cors());
-
+app.disable("x-powered-by");
+app.use(cookieParser());
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 
 function geraNumeroAleatorio(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
 }
 
-function geraAcessoJWT() {
+function geraAcessoJWT(idUsuario) {
   let payload = {
-    id: this._id,
+    id: idUsuario
   };
   return jwt.sign(payload, SECRET_ACCESS_TOKEN, {
     expiresIn: '20m',
@@ -55,16 +58,12 @@ async function login(req, res) {
         }
         console.log('Fechou a conexão com o banco de dados.');
       });
-      return res.status(401).json({
-        status: 'failed',
-        message: 'Login inválido 1!',
-      });
-    } else {
+
       let senhaCorreta = await bcrypt.compare(senha, result.senha)
       if (!senhaCorreta) {
         return res.status(401).json({
           status: 'failed',
-          message: 'Login inválido 2!',
+          message: 'Login ou senha incorretos!',
         });
       }
 
@@ -75,11 +74,12 @@ async function login(req, res) {
         sameSite: "None",
       };
       const token = geraAcessoJWT(); // gera um token de sessão para o usuário
-    res.cookie("SessionID", token, options); // preenche o token na resposta para ser utilizado pelo cliente nas próximas requisições
-      res.status(200).json({
-          status: "success",
-          message: "Autenticação realizada com sucesso!",
-      });
+      console.log(token)
+      res.cookie("SessionID", token, options); // preenche o token na resposta para ser utilizado pelo cliente nas próximas requisições
+        res.status(200).json({
+            status: "success",
+            message: "Autenticação realizada com sucesso!",
+        });
     }
   });
 }
@@ -117,10 +117,6 @@ async function verificaToken(req, res, next) {
             return console.error(err.message)
           }
           console.log('Fechou a conexão com o banco de dados.')
-        });
-        return res.status(401).json({
-          status: 'failed',
-          message: 'Login inválido 3!',
         });
       }
     });
@@ -179,7 +175,7 @@ app.get('/usuarios', verificaToken, (req, res) => {
 });
 
 
-app.post('/usuarios/novo', (req, res) => {
+app.post('/usuarios/novo', verificaToken, (req, res) => {
   const { nome, email, senha, conf_senha } = req.body;
   console.log(req);
   // Aqui começa a validação dos campos do formulário
@@ -244,7 +240,7 @@ app.post('/usuarios/novo', (req, res) => {
   }
 });
 
-app.delete('/usuarios/:id_usuario', (req, res) => {
+app.delete('/usuarios/:id_usuario', verificaToken, (req, res) => {
   const { id_usuario } = req.params;
 
   // Conectar ao banco de dados SQLite
