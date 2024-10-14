@@ -154,6 +154,17 @@ async function verificaToken(req, res, next) {
 
 app.post("/login", login);
 
+app.post('/logout', (req, res) => {
+  // Limpa o cookie "SessionID" 
+  res.clearCookie("SessionID");
+
+  // Retorna uma resposta de sucesso
+  res.status(200).json({
+    status: 'success',
+    message: 'Logout realizado com sucesso!'
+  });
+});
+
 
 app.get('/hello', (req, res) => {
   let aleatorio = geraNumeroAleatorio(0,100);

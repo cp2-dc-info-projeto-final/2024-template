@@ -35,7 +35,6 @@
             window.location.href = "/index.html";  
         }
         error = null; // Limpa o erro se a requisição for bem-sucedida
-        // recarrega lista de usuários apresentada
       } catch (err) {
         error = err.response?.data?.message || err.message;
         resultado = null; // Limpa o resultado em caso de erro

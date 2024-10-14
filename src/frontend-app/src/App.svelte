@@ -72,16 +72,33 @@
   };
 
   const buscarUsuarioLogado = async () => {
-        try {
-            const res = await axiosInstance.get('/usuarios/me');
-            console.log(res.data);
-            usuarioLogado = res.data.usuario; // Armazena os dados do usuário
-            error = null; // Limpa o erro se a requisição for bem-sucedida
-        } catch (err) {
-            error = err.response?.data?.message || err.message;
-            usuarioLogado = null; // Limpa os dados em caso de erro
-        }
-    };
+      try {
+          const res = await axiosInstance.get('/usuarios/me');
+          console.log(res.data);
+          usuarioLogado = res.data.usuario; // Armazena os dados do usuário
+          error = null; // Limpa o erro se a requisição for bem-sucedida
+      } catch (err) {
+          error = err.response?.data?.message || err.message;
+          usuarioLogado = null; // Limpa os dados em caso de erro
+      }
+  };
+
+  const logout = async () => {
+    try {
+      let res = await axiosInstance.post("/logout");
+      resultado = res.data;
+
+      // Redirecionar para página de logon após logout
+      if (resultado && resultado.status === "success") { 
+            window.location.href = "/login.html";  
+      }
+      error = null; // Limpa o erro se a requisição for bem-sucedida
+    } catch (err) {
+      error = "Erro ao buscar dados: " + err.response?.data?.message || err.message;
+      console.error(err);
+      resultado = null; // Limpa o resultado em caso de erro
+    }
+  };
 
 
   // Função para deletar o usuário pelo ID
@@ -119,6 +136,8 @@
         <p><strong>ID:</strong> {usuarioLogado.idUsuario}</p>
         <p><strong>Nome:</strong> {usuarioLogado.nome}</p>
         <p><strong>E-mail:</strong> {usuarioLogado.email}</p>
+
+        <button on:click={logout}>Logout</button>
       
     {:else}
         <p>Carregando dados do usuário...</p>
