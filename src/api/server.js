@@ -59,14 +59,6 @@ async function login(req, res) {
       console.log(error)
     }
     else if (result) {
-      db.close((err) => {
-        if (err) {
-          console.log(err.message);
-          return console.error(err.message);
-        }
-        console.log('Fechou a conexão com o banco de dados.');
-      });
-
       let idUsuario = result.id_usuario;
       let senhaCorreta = await bcrypt.compare(senha, result.senha)
       if (!senhaCorreta) {
@@ -96,6 +88,15 @@ async function login(req, res) {
             message: "Autenticação realizada com sucesso!",
         });
     }
+
+    db.close((err) => {
+      if (err) {
+        console.log(err.message);
+        return console.error(err.message);
+      }
+      console.log('Fechou a conexão com o banco de dados.');
+    });
+
   });
 }
 
@@ -132,6 +133,11 @@ async function verificaToken(req, res, next) {
           console.log(error)
         }
         else if (result) {
+          const { id_usuario, nome, email } = result
+          req.idUsuario = id_usuario
+          req.email = email
+          req.nome = nome
+
           db.close((err) => {
             if (err) {
               return console.error(err.message)
@@ -139,10 +145,6 @@ async function verificaToken(req, res, next) {
             console.log('Fechou a conexão com o banco de dados.')
           });
 
-          const { id_usuario, nome, email } = result
-          req.idUsuario = id_usuario
-          req.email = email
-          req.nome = nome
           next();
         }
       });
